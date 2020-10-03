@@ -11,6 +11,7 @@ import re
 import socket
 import sys
 import time
+import json
 
 from functools import lru_cache
 
@@ -54,6 +55,21 @@ NOPRINT_TRANS_TABLE = {
     i: None for i in range(0, sys.maxunicode + 1) if not chr(i).isprintable() and not chr(i) in (' ', '\t', '\n')
 }
 # .isspace() # unicodedata.category(char)[0] != "C" or char in ('\t', '\n')
+
+def rate_limit(max_per_minute):
+    min_interval = 60.0 / float(max_per_minute)
+    def decorate(func):
+        last_time_called = [0.0]
+        def rate_limited_function(*args, **kwargs):
+            elapsed = time.clock() - last_time_called[0]
+            wait_for = min_interval - elapsed
+            if wait_for > 0:
+                time.sleep(wait_for)
+            ret = func(*args, **kwargs)
+            last_time_called[0] = time.clock()
+            return ret
+        return rate_limited_function
+    return decorate
 
 
 def isutf8(data):
@@ -99,7 +115,8 @@ def decode_response(response):
     return htmltext
 
 
-def fetch_url(url):
+@rate_limit(200)
+def fetch_url(url, max_retries=5, wait_interval=4, retry_errors=(500, 502, 503, 504)):
     """ Fetch page using requests/urllib3
     Args:
         URL: URL of the page to fetch
@@ -108,32 +125,37 @@ def fetch_url(url):
     Raises:
         Nothing.
     """
-    # send
-    try:
-        # read by streaming chunks (stream=True, iter_content=xx)
-        # so we can stop downloading as soon as MAX_FILE_SIZE is reached
-        response = SESSION.get(url, timeout=30, verify=False, allow_redirects=True, headers=HEADERS)
-    except (requests.exceptions.MissingSchema, requests.exceptions.InvalidURL):
-        LOGGER.error('malformed URL: %s', url)
-    except requests.exceptions.TooManyRedirects:
-        LOGGER.error('redirects: %s', url)
-    except requests.exceptions.SSLError as err:
-        LOGGER.error('SSL: %s %s', url, err)
-    except (socket.timeout, requests.exceptions.ConnectionError, requests.exceptions.Timeout, socket.error, socket.gaierror) as err:
-        LOGGER.error('connection: %s %s', url, err)
-    #except Exception as err:
-    #    logging.error('unknown: %s %s', url, err) # sys.exc_info()[0]
-    else:
-        # safety checks
-        if response.status_code != 200:
-            LOGGER.error('not a 200 response: %s', response.status_code)
-        elif response.text is None or len(response.text) < MIN_FILE_SIZE:
-            LOGGER.error('too small/incorrect: %s %s', url, len(response.text))
-        elif len(response.text) > MAX_FILE_SIZE:
-            LOGGER.error('too large: %s %s', url, len(response.text))
+    response = None
+    retries = 0
+    while retries <= max_retries:
+        try:
+            response = service.searchanalytics().query(siteUrl=property_uri, body=request).execute()
+        except HttpError as err:
+            status_code = err.response.status_code
+            if status_code in retry_errors:
+                time.sleep(wait_interval)
+                retries += 1
+                continue
+        except (requests.exceptions.MissingSchema, requests.exceptions.InvalidURL):
+            LOGGER.error('malformed URL: %s', url)
+        except requests.exceptions.TooManyRedirects:
+            LOGGER.error('redirects: %s', url)
+        except requests.exceptions.SSLError as err:
+            LOGGER.error('SSL: %s %s', url, err)
+        except (socket.timeout, requests.exceptions.ConnectionError, requests.exceptions.Timeout, socket.error, socket.gaierror) as err:
+            LOGGER.error('connection: %s %s', url, err)
         else:
-            return decode_response(response)
-    return None
+            # safety checks
+            if response.status_code != 200:
+                LOGGER.error('not a 200 response: %s', response.status_code)
+            elif response.text is None or len(response.text) < MIN_FILE_SIZE:
+                LOGGER.error('too small/incorrect: %s %s', url, len(response.text))
+            elif len(response.text) > MAX_FILE_SIZE:
+                LOGGER.error('too large: %s %s', url, len(response.text))
+            else:
+                return decode_response(response)
+        break
+    return response
 
 
 def load_html(htmlobject):
