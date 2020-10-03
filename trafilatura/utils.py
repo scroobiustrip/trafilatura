@@ -129,8 +129,8 @@ def fetch_url(url, max_retries=5, wait_interval=4, retry_errors=(500, 502, 503, 
     retries = 0
     while retries <= max_retries:
         try:
-            response = service.searchanalytics().query(siteUrl=property_uri, body=request).execute()
-        except HttpError as err:
+            response = SESSION.get(url, timeout=30, verify=False, allow_redirects=True, headers=HEADERS)
+        except HTTPError as err:
             status_code = err.response.status_code
             if status_code in retry_errors:
                 time.sleep(wait_interval)
