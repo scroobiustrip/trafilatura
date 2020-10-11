@@ -37,7 +37,8 @@ LOGGER = logging.getLogger(__name__)
 # customize headers
 HEADERS = {
     # 'Connection': 'close',  # another way to cover tracks
-    #'User-Agent': USER_AGENT,  # your string here
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' \
+                  '(KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36',
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
