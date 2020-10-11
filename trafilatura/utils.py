@@ -39,6 +39,14 @@ HEADERS = {
     # 'Connection': 'close',  # another way to cover tracks
     #'User-Agent': USER_AGENT,  # your string here
 }
+
+COOKIES = {'__cfduid': 'd98db4fbceb6f9416314c6294b6a548df1602425978',
+ 'ASP.NET_SessionId': 'sur5qtxc5qxedwvgtskkjdtg',
+ 'AWSALB': 'mOUy/aUfu87UBqq2iN6Rre9Ka3uQHdMir/Bq9UwS6JD8MuyI8Ezd/boe5A89AvjrMD1BQIarwa1UUPCk1tQkzQmcPRGYeQYw3Q6mSe3y/HGiLpqwjr3tcC1LV22H',
+ 'AWSALBCORS': 'mOUy/aUfu87UBqq2iN6Rre9Ka3uQHdMir/Bq9UwS6JD8MuyI8Ezd/boe5A89AvjrMD1BQIarwa1UUPCk1tQkzQmcPRGYeQYw3Q6mSe3y/HGiLpqwjr3tcC1LV22H',
+ 'SC_ANALYTICS_GLOBAL_COOKIE': 'aea500def10f49b6acc0304ac77eac36|False',
+ '__RequestVerificationToken': '49bdStEIxay6Won3Vfv1Ak4zfTeyasrm_5S3bdiRs8Qvdq39jTq9rGHsvpMMnzqUvNUFdN89Ud41z5aH_n2g6YCo08KV7cQlHsPCf5caWTI1'}
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 SESSION = requests.Session()
 
@@ -129,7 +137,7 @@ def fetch_url(url, max_retries=5, wait_interval=4, retry_errors=(500, 502, 503, 
     retries = 0
     while retries <= max_retries:
         try:
-            response = SESSION.get(url, timeout=30, verify=False, allow_redirects=True, headers=HEADERS)
+            response = SESSION.get(url, timeout=30, verify=False, allow_redirects=True, headers=HEADERS, cookies=COOKIES)
         except HTTPError as err:
             status_code = err.response.status_code
             if status_code in retry_errors:
